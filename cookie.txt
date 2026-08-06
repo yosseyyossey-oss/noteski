@@ -24,7 +24,7 @@
     "value": "c99a680a631db4a6fd70d4c5b87f46dd",
     "domain": ".note.com",
     "path": "/",
-    "expires": 1793977528.219314,
+    "expires": 1793978431.417775,
     "httpOnly": true,
     "secure": true,
     "sameSite": "Lax"
@@ -89,4 +89,4 @@
     "secure": true,
     "sameSite": "Lax"
   }
-]  
+]
