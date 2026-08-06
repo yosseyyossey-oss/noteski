@@ -1,0 +1,39 @@
+name: Note Auto Like
+
+on:
+  # Google Apps Script(GAS)からの命令、または手動でのみ起動する設定
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # クッキーの自動更新を保存するために必須
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install chromium
+
+      - name: Run script
+        run: python note_ski.py
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          # 更新された実行記録とクッキーをリポジトリに保存
+          if [ -f last_run.txt ]; then git add last_run.txt; fi
+          if [ -f cookie.txt ]; then git add cookie.txt; fi
+          git commit -m "Update run time and refresh cookies [skip ci]" || echo "No changes to commit"
+          git push
