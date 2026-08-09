@@ -17,6 +17,7 @@ def run():
         print(f"💤 現在 {hour}時（深夜2:00-5:00）のため、動作を停止します。")
         return
 
+    # ボリューム重視の固定キーワード
     keywords = [
         "日記", "エッセイ", "毎日note", "自己紹介", "毎日更新",
         "ビジネス", "ライフスタイル", "生き方", "考え方", "習慣",
@@ -29,6 +30,7 @@ def run():
     total_count = 0
     MAX_LIKES = 20
     
+    # 処理済みユーザーを記録するセット（同一稼働内での重複防止）
     processed_users = set()
 
     with sync_playwright() as p:
@@ -52,7 +54,7 @@ def run():
 
         print(f"🚀 noteへアクセス中... (現在時刻: {hour}時)")
         page.goto("https://note.com/notifications", wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(5000)
+        page.wait_for_timeout(10000) 
 
         # ログイン確認
         if "つくる、つながる" in page.title():
@@ -67,88 +69,69 @@ def run():
                 break
             
             print(f"🔎 検索開始: 【{word}】 (現在の合計: {total_count}/{MAX_LIKES})")
-            url = f"https://note.com/search?q={urllib.parse.quote(word)}&context=note&mode=search&sort=new"
+            url = f"https://note.com/search?q={urllib.parse.quote(word)}&mode=search&sort=new"
             page.goto(url, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(4000)
 
-            # 【ピンポイント指定】ご提示いただいたXPathを使って「新着」ボタンをクリック
+            # 【重要追加】画面上の「新着」並び替えタブを直接クリックして確実に新着順へ切り替える
             try:
-                # 指定のXPath（button[3]）またはテキスト「新着」を含むボタン要素を狙い撃ち
-                xpath_selector = 'xpath=/html/body/div[4]/div[2]/main/div/div[3]/div[1]/div[1]/button[3]'
-                
-                # XPathで要素が存在するか確認
-                if page.locator(xpath_selector).count() > 0:
-                    page.locator(xpath_selector).click(force=True)
-                    print("🔄 「新着」ソートボタンをクリックしました (XPath指定)")
-                else:
-                    # 万が一階層数が変動した場合のフォールバック（新着ボタンを直接クリック）
-                    page.locator('main button:has-text("新着"), main a:has-text("新着")').first.click(force=True)
-                    print("🔄 「新着」ソートボタンをクリックしました (フォールバック指定)")
-                
-                page.wait_for_timeout(3000)
-            except Exception as e:
-                print(f"⚠️ 新着切り替えスキップ: {e}")
-
-            # 複数回スクロールして新着記事をロード
+                new_tab_btn = page.locator('button:has-text("新着"), a:has-text("新着")').first
+                if new_tab_btn.is_visible():
+                    new_tab_btn.click()
+                    page.wait_for_timeout(3000)
+            except:
+                pass
+            
+            # 【重要】複数回スクロールして読み込みを安定させる
             for _ in range(3):
-                page.mouse.wheel(0, 2500)
-                page.wait_for_timeout(2000)
+                page.mouse.wheel(0, 2000)
+                page.wait_for_timeout(2500)
             
-            # 未実行のスキボタンを取得
-            btns_locator = page.locator('button[aria-label*="スキ"]')
+            # 動的なスキ数が入った aria-label に対応するロケーター
+            btns_locator = page.locator('button[aria-label*="スキ"][aria-label*="この記事にスキをつけたユーザーを見る"]')
             count_in_page = btns_locator.count()
-            
-            valid_btns = []
-            for idx in range(count_in_page):
-                btn = btns_locator.nth(idx)
-                try:
-                    aria_pressed = btn.get_attribute("aria-pressed")
-                    aria_label = btn.get_attribute("aria-label") or ""
-                    
-                    # 既にスキ済みの記事は除外
-                    if aria_pressed == "true" or "スキを取り消す" in aria_label or "取り消す" in aria_label:
-                        continue
-                        
-                    # スキボタン（未実行）のみを保持
-                    if "この記事にスキをつけたユーザーを見る" in aria_label or "スキをつける" in aria_label:
-                        valid_btns.append(btn)
-                except Exception:
-                    continue
+            print(f"🔎 「{word}」で未実行のボタンを {count_in_page} 個発見")
 
-            print(f"🔎 「{word}」で未実行のボタンを {len(valid_btns)} 個発見")
-
-            for target_btn in valid_btns:
+            for i in range(count_in_page):
                 if total_count >= MAX_LIKES:
                     break
                 
                 try:
-                    if target_btn.is_visible():
+                    target_btn = btns_locator.nth(i)
+                    
+                    # ボタンが表示されており、かつ過去にスキ（いいね）を押していない（aria-pressed="false"）か確認
+                    if target_btn.is_visible() and target_btn.get_attribute("aria-pressed") != "true":
+                        
+                        # --- ユーザー名抽出 ---
                         user_name = "Unknown"
                         try:
-                            parent_card = target_btn.locator('xpath=./ancestor::*[self::article or self::section or contains(@class, "Wrapper") or contains(@class, "Note")][1]')
-                            user_element = parent_card.locator('a[href*="/n/"], [class*="userName"], [class*="user"]').first
+                            parent_card = target_btn.locator('xpath=./ancestor::section[contains(@class, "m-largeNoteWrapper")][1]')
+                            user_element = parent_card.locator('.o-largeNoteSummary__userName')
                             if user_element.count() > 0:
-                                user_name = user_element.inner_text().strip().split('\n')[0]
-                        except Exception:
+                                user_name = user_element.inner_text().strip()
+                        except:
                             pass
 
+                        # 既に今回の起動でスキ済みのユーザーならスキップ
                         if user_name != "Unknown" and user_name in processed_users:
                             continue
                         
                         target_btn.scroll_into_view_if_needed()
-                        page.wait_for_timeout(random.randint(1500, 3000))
+                        page.wait_for_timeout(random.randint(2000, 4000)) # クリック前の溜め
                         
                         target_btn.click(force=True)
                         total_count += 1
                         
+                        # スキしたユーザー名を記録
                         if user_name != "Unknown":
                             processed_users.add(user_name)
                             print(f"[{total_count}/{MAX_LIKES}] スキ！ ({word} / ユーザー: {user_name})")
                         else:
                             print(f"[{total_count}/{MAX_LIKES}] スキ！ ({word})")
                         
-                        time.sleep(random.uniform(8, 15))
-                except Exception:
+                        # 検知回避のための待機
+                        time.sleep(random.uniform(10, 18))
+                except:
                     continue
             
             if total_count < MAX_LIKES:
