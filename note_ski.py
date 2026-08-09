@@ -69,19 +69,20 @@ def run():
                 break
             
             print(f"🔎 検索開始: 【{word}】 (現在の合計: {total_count}/{MAX_LIKES})")
-            # 新着順ソート（mode=search&sort=new）のURLを作成
             url = f"https://note.com/search?q={urllib.parse.quote(word)}&context=note&mode=search&sort=new"
             page.goto(url, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
 
-            # 【補強処理】UI上の「新着」タブを確実にクリックして新着順を保証
+            # 【ピンポイント修正】検索結果エリア内にある「新着」ボタンを確実に押す
             try:
-                new_tab = page.locator('a:has-text("新着"), button:has-text("新着")').first
+                # 画面上の「人気急上昇」「新着」が並んでいるエリアから「新着」を特定
+                new_tab = page.locator('main#main-content').locator('button, a, div').filter(has_text="新着").first
                 if new_tab.is_visible():
                     new_tab.click()
-                    page.wait_for_timeout(2000)
-            except Exception:
-                pass
+                    print("🔄 「新着」ソート順に切り替えました")
+                    page.wait_for_timeout(3000)
+            except Exception as e:
+                print(f"⚠️ 新着タブの切り替えに失敗（そのまま続行）: {e}")
 
             # 複数回スクロールして最新記事を読み込ませる
             for _ in range(3):
@@ -99,11 +100,11 @@ def run():
                     aria_pressed = btn.get_attribute("aria-pressed")
                     aria_label = btn.get_attribute("aria-label") or ""
                     
-                    # 【重要】過去に既にスキを押した記事（aria-pressed="true" や「スキを取り消す」）を除外
+                    # 過去に既にスキを押した記事（aria-pressed="true" や「スキを取り消す」）を除外
                     if aria_pressed == "true" or "スキを取り消す" in aria_label or "取り消す" in aria_label:
                         continue
                         
-                    # 「この記事にスキをつけたユーザーを見る」が含まれる未実行ボタンのみを保持
+                    # 未実行ボタンのみを保持
                     if "この記事にスキをつけたユーザーを見る" in aria_label:
                         valid_btns.append(btn)
                 except Exception:
@@ -119,7 +120,6 @@ def run():
                     if target_btn.is_visible():
                         user_name = "Unknown"
                         try:
-                            # 記事カードの親要素からユーザー名を特定
                             parent_card = target_btn.locator('xpath=./ancestor::*[self::article or self::section or contains(@class, "Wrapper") or contains(@class, "Note")][1]')
                             user_element = parent_card.locator('a[href*="/n/"], [class*="userName"], [class*="user"]').first
                             if user_element.count() > 0:
@@ -143,7 +143,6 @@ def run():
                         else:
                             print(f"[{total_count}/{MAX_LIKES}] スキ！ ({word})")
                         
-                        # 検出回避のためのランダム待機
                         time.sleep(random.uniform(10, 18))
                 except Exception:
                     continue
