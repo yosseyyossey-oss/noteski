@@ -17,7 +17,6 @@ def run():
         print(f"💤 現在 {hour}時（深夜2:00-5:00）のため、動作を停止します。")
         return
 
-    # ボリューム重視の固定キーワード
     keywords = [
         "日記", "エッセイ", "毎日note", "自己紹介", "毎日更新",
         "ビジネス", "ライフスタイル", "生き方", "考え方", "習慣",
@@ -30,7 +29,6 @@ def run():
     total_count = 0
     MAX_LIKES = 20
     
-    # 処理済みユーザーを記録するセット（同一稼働内での重複防止）
     processed_users = set()
 
     with sync_playwright() as p:
@@ -54,7 +52,7 @@ def run():
 
         print(f"🚀 noteへアクセス中... (現在時刻: {hour}時)")
         page.goto("https://note.com/notifications", wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(8000) 
+        page.wait_for_timeout(5000)
 
         # ログイン確認
         if "つくる、つながる" in page.title():
@@ -73,23 +71,30 @@ def run():
             page.goto(url, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
 
-            # 【ピンポイント修正】検索結果エリア内にある「新着」ボタンを確実に押す
+            # 【ピンポイント指定】ご提示いただいたXPathを使って「新着」ボタンをクリック
             try:
-                # 画面上の「人気急上昇」「新着」が並んでいるエリアから「新着」を特定
-                new_tab = page.locator('main#main-content').locator('button, a, div').filter(has_text="新着").first
-                if new_tab.is_visible():
-                    new_tab.click()
-                    print("🔄 「新着」ソート順に切り替えました")
-                    page.wait_for_timeout(3000)
+                # 指定のXPath（button[3]）またはテキスト「新着」を含むボタン要素を狙い撃ち
+                xpath_selector = 'xpath=/html/body/div[4]/div[2]/main/div/div[3]/div[1]/div[1]/button[3]'
+                
+                # XPathで要素が存在するか確認
+                if page.locator(xpath_selector).count() > 0:
+                    page.locator(xpath_selector).click(force=True)
+                    print("🔄 「新着」ソートボタンをクリックしました (XPath指定)")
+                else:
+                    # 万が一階層数が変動した場合のフォールバック（新着ボタンを直接クリック）
+                    page.locator('main button:has-text("新着"), main a:has-text("新着")').first.click(force=True)
+                    print("🔄 「新着」ソートボタンをクリックしました (フォールバック指定)")
+                
+                page.wait_for_timeout(3000)
             except Exception as e:
-                print(f"⚠️ 新着タブの切り替えに失敗（そのまま続行）: {e}")
+                print(f"⚠️ 新着切り替えスキップ: {e}")
 
-            # 複数回スクロールして最新記事を読み込ませる
+            # 複数回スクロールして新着記事をロード
             for _ in range(3):
                 page.mouse.wheel(0, 2500)
                 page.wait_for_timeout(2000)
             
-            # 全てのスキボタン要素を取得
+            # 未実行のスキボタンを取得
             btns_locator = page.locator('button[aria-label*="スキ"]')
             count_in_page = btns_locator.count()
             
@@ -100,17 +105,17 @@ def run():
                     aria_pressed = btn.get_attribute("aria-pressed")
                     aria_label = btn.get_attribute("aria-label") or ""
                     
-                    # 過去に既にスキを押した記事（aria-pressed="true" や「スキを取り消す」）を除外
+                    # 既にスキ済みの記事は除外
                     if aria_pressed == "true" or "スキを取り消す" in aria_label or "取り消す" in aria_label:
                         continue
                         
-                    # 未実行ボタンのみを保持
-                    if "この記事にスキをつけたユーザーを見る" in aria_label:
+                    # スキボタン（未実行）のみを保持
+                    if "この記事にスキをつけたユーザーを見る" in aria_label or "スキをつける" in aria_label:
                         valid_btns.append(btn)
                 except Exception:
                     continue
 
-            print(f"🔎 「{word}」で未実行（新着）のボタンを {len(valid_btns)} 個発見")
+            print(f"🔎 「{word}」で未実行のボタンを {len(valid_btns)} 個発見")
 
             for target_btn in valid_btns:
                 if total_count >= MAX_LIKES:
@@ -127,12 +132,11 @@ def run():
                         except Exception:
                             pass
 
-                        # 今回の起動ですでにスキを押した同一ユーザーならスキップ
                         if user_name != "Unknown" and user_name in processed_users:
                             continue
                         
                         target_btn.scroll_into_view_if_needed()
-                        page.wait_for_timeout(random.randint(2000, 4000))
+                        page.wait_for_timeout(random.randint(1500, 3000))
                         
                         target_btn.click(force=True)
                         total_count += 1
@@ -143,7 +147,7 @@ def run():
                         else:
                             print(f"[{total_count}/{MAX_LIKES}] スキ！ ({word})")
                         
-                        time.sleep(random.uniform(10, 18))
+                        time.sleep(random.uniform(8, 15))
                 except Exception:
                     continue
             
