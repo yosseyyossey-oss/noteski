@@ -26,12 +26,12 @@ def run():
         "仕事", "写真", "デザイン", "読書", "料理",
         "イラスト", "マンガ", "小説", "最近の学び", "振り返り"
     ]
-    
+
     random.shuffle(keywords)
     total_count = 0
-    MAX_LIKES = 20
-    
-    # 処理済みユーザーを記録するセット（同一稼働内での重複防止）
+    MAX_LIKES = 20  # 20件目標
+
+    # 重複除外用セット（同一起動内での同クリエイターへの重複防止）
     processed_users = set()
 
     with sync_playwright() as p:
@@ -55,7 +55,7 @@ def run():
 
         print(f"🚀 noteへアクセス中... (現在時刻: {hour}時)")
         page.goto("https://note.com/notifications", wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(10000) 
+        page.wait_for_timeout(3000)
 
         # ログイン確認
         if "つくる、つながる" in page.title():
@@ -64,100 +64,93 @@ def run():
             return
         print("✅ ログイン成功を確認！")
 
-        # --- キーワードループ ---
         for word in keywords:
             if total_count >= MAX_LIKES:
                 break
-            
-            print(f"🔎 検索開始: 【{word}】 (現在の合計: {total_count}/{MAX_LIKES})")
-            url = f"https://note.com/search?q={urllib.parse.quote(word)}&context=note&mode=search&sort=new"
-            page.goto(url, wait_until="domcontentloaded")
-            page.wait_for_timeout(5000)
 
-            # 画面上の「新着」並び替えタブをクリック
+            print(f"🔎 検索開始: 【{word}】 (目標: 20件 / 現在: {total_count}件)")
+            # 新着順（sort=new）で検索URLを生成
+            url = f"https://note.com/search?q={urllib.parse.quote(word)}&mode=search&sort=new"
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+
+            time_pattern = re.compile(r'\d+(?:か月|日|時間|分|年)前')
+            time_locator = page.get_by_text(time_pattern)
+
+            # 投稿時間テキストの描画完了を待機
             try:
-                new_tab_btn = page.locator('button:has-text("新着"), a:has-text("新着")').first
-                if new_tab_btn.is_visible():
-                    new_tab_btn.click()
-                    page.wait_for_timeout(3000)
-            except:
-                pass
-            
-            # 複数回スクロールして読み込みを安定させる
-            for _ in range(3):
-                page.mouse.wheel(0, 2000)
-                page.wait_for_timeout(2500)
-            
-            # 動的なスキ数が入った aria-label に対応するロケーター
-            btns_locator = page.locator('button[aria-label*="スキ"][aria-label*="この記事にスキをつけたユーザーを見る"]')
-            count_in_page = btns_locator.count()
-            print(f"🔎 「{word}」でボタンを {count_in_page} 個発見")
+                time_locator.first.wait_for(state="visible", timeout=15000)
+            except Exception:
+                print(f"⚠️ 【{word}】 投稿時間テキストの描画タイムアウト（次のワードへ）")
+                continue
 
-            for i in range(count_in_page):
+            time_elements = time_locator.all()
+            print(f"🔎 【{word}】 画面表面の投稿時間テキストを {len(time_elements)} 件検出")
+
+            for time_elem in time_elements:
                 if total_count >= MAX_LIKES:
                     break
-                
+
                 try:
-                    target_btn = btns_locator.nth(i)
-                    
-                    if target_btn.is_visible() and target_btn.get_attribute("aria-pressed") != "true":
-                        
-                        # --- 記事のカード要素から投稿時間とユーザー名を取得 ---
-                        user_name = "Unknown"
-                        post_time_text = ""
-                        
-                        try:
-                            parent_card = target_btn.locator('xpath=./ancestor::section[contains(@class, "m-largeNoteWrapper")][1]')
-                            
-                            # ユーザー名抽出
-                            user_element = parent_card.locator('.o-largeNoteSummary__userName')
-                            if user_element.count() > 0:
-                                user_name = user_element.inner_text().strip()
-                            
-                            # 投稿時間（〇分前、〇時間前、〇日前 など）を取得
-                            card_text = parent_card.inner_text()
-                            time_match = re.search(r'(\d+\s*(?:分|時間|日|か月|年)前)', card_text)
-                            if time_match:
-                                post_time_text = time_match.group(1).replace(" ", "")
-                        except:
-                            pass
+                    post_time = time_elem.inner_text().strip()
 
-                        # 【判定】「日前」「か月前」「年前」が出たら新着ではないため、このキーワードを中断して次へ
-                        if any(old_unit in post_time_text for old_unit in ["日前", "か月前", "年前"]):
-                            print(f"  └ ⚠️ 過去の記事（{post_time_text}）を検出したため【{word}】を終了し、次のキーワードへ移ります。")
-                            break
+                    # 投稿時間テキストの「すぐ直後」に存在するbutton（ハートマーク）を指定
+                    btn = time_elem.locator('xpath=following::button[1]')
 
-                        # 既に今回の起動でスキ済みのユーザーならスキップ
-                        if user_name != "Unknown" and user_name in processed_users:
-                            continue
-                        
-                        target_btn.scroll_into_view_if_needed()
-                        page.wait_for_timeout(random.randint(2000, 4000))
-                        
-                        target_btn.click(force=True)
-                        total_count += 1
-                        
-                        # スキしたログ（時間付き）
-                        time_info = f" / 投稿時間: {post_time_text}" if post_time_text else ""
-                        if user_name != "Unknown":
-                            processed_users.add(user_name)
-                            print(f"[{total_count}/{MAX_LIKES}] スキ！ ({word} / ユーザー: {user_name}{time_info})")
-                        else:
-                            print(f"[{total_count}/{MAX_LIKES}] スキ！ ({word}{time_info})")
-                        
-                        time.sleep(random.uniform(10, 18))
-                except:
+                    if btn.count() == 0 or not btn.is_visible():
+                        continue
+
+                    # 既にスキ済み（aria-pressed="true"）の場合は重複防止でスキップ
+                    if btn.get_attribute("aria-pressed") == "true":
+                        continue
+
+                    # 投稿時間テキストの「すぐ直前」に存在するリンク要素から情報を取得
+                    link = time_elem.locator('xpath=preceding::a[1]')
+                    target_url = "Unknown"
+                    user_name = "Unknown"
+
+                    if link.count() > 0:
+                        href = link.get_attribute("href")
+                        if href:
+                            target_url = href if href.startswith("http") else f"https://note.com{href}"
+                        text = link.inner_text().strip()
+                        if text:
+                            user_name = text
+
+                    # 今回の起動で既にスキ済みの同一ユーザーなら重複防止でスキップ
+                    if user_name != "Unknown" and user_name in processed_users:
+                        continue
+
+                    btn.scroll_into_view_if_needed()
+                    page.wait_for_timeout(random.randint(1500, 3000))
+
+                    btn.click(force=True)
+                    total_count += 1
+
+                    if user_name != "Unknown":
+                        processed_users.add(user_name)
+
+                    print(f"🎉 [{total_count}/{MAX_LIKES}] スキ成功！")
+                    print(f"  ├ キーワード : {word}")
+                    print(f"  ├ 対象/ユーザー: {user_name}")
+                    print(f"  ├ 投稿時間   : {post_time}")
+                    print(f"  └ 参照URL    : {target_url}\n")
+
+                except Exception as e:
                     continue
-            
-            if total_count < MAX_LIKES:
-                print(f"💡 「{word}」の処理を終了。次へ進みます。")
 
-        # 最後にセッションを更新保存
-        with open("cookie.txt", "w", encoding="utf-8") as f:
-            json.dump(context.cookies(), f, indent=2)
+            if total_count >= MAX_LIKES:
+                print("🎯 目標（20件）を達成したため処理を終了します。")
+                break
+
+        # クッキー更新保存
+        try:
+            with open("cookie.txt", "w", encoding="utf-8") as f:
+                json.dump(context.cookies(), f, indent=2)
+        except Exception as e:
+            print(f"⚠️ クッキー保存失敗: {e}")
 
         browser.close()
-    print(f"--- 全行程完了: 合計 {total_count}件 ---")
+        print(f"--- 実行完了: 合計 {total_count}件 ---")
 
 if __name__ == "__main__":
     run()
