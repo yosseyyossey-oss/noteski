@@ -24,7 +24,7 @@
     "value": "c99a680a631db4a6fd70d4c5b87f46dd",
     "domain": ".note.com",
     "path": "/",
-    "expires": 1803766510.648046,
+    "expires": 1803770107.185027,
     "httpOnly": true,
     "secure": true,
     "sameSite": "Lax"
@@ -71,17 +71,17 @@
   },
   {
     "name": "note_gql_auth_token",
-    "value": "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJub3RlLmNvbSIsInN1YiI6IjVmNGY3MTA2ZDZiOTVhMzgzYzdiNzk3NTRhNTAxYzUwIiwiaWF0IjoxNzk1ODE3NjUzLCJleHAiOjE3OTU4MTk0NTMsImNkIjpmYWxzZSwiZ3UiOmZhbHNlLCJzaWQiOiJfX05PTkVfXyJ9.POtwPAYFrDB9cza0-KS12Mi9PNV0H_oAhXIZpiN0QNqM_k2OtGkLQz7tsMfb-sJVIPlyTMq26Azx0ZfLW1o4VJcHKr7gwM6bA4NY38NmbF2XEWc8Tz8d9NiN7RZjIxfD-a-z2dMgiT4UeIQLDoyangWCqymGt57R7fu3UKfxxCQVCZqgEdxxbUQdkiWhr-2gABgAa3My62i-HmjThbFVuExmp2A6a1KzhRefBTBMKObEk75AIVkjwS5AYpvnJIUkQOdp1GpaNIwzKYH1qxLRJuNPSkscWFeufzGlOY5s6CXKTdAhF_bC81o7QlRpPktt7mJcJqSt_pIgWLQ0_icO2A",
+    "value": "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJub3RlLmNvbSIsInN1YiI6IjVmNGY3MTA2ZDZiOTVhMzgzYzdiNzk3NTRhNTAxYzUwIiwiaWF0IjoxNzk1ODIxMjU1LCJleHAiOjE3OTU4MjMwNTUsImNkIjpmYWxzZSwiZ3UiOmZhbHNlLCJzaWQiOiJfX05PTkVfXyJ9.bsHgV_KLanhmWniQKJAQbglBP7IGBaex8Aqg1wFTZ3PwQUho7HYoZMYMkYPBdKL91IijbIYM8-0EnIcugmhg_KMkZTc_lHYRDvLL4-nTkPGsAdI7e729J4PvL5IPMOu9L10yehre_AQfrmoyl3XxJmIrEWxbZl9IWLq-v1sT12tYgXJNRVnkYWckvci6eaLpqUWDqgpOuFlTbr_Rh1K6iPF0Gvzd-hGYhparTGW0bp5AvWrjTIbMmw5NkH_F5QXelubOf66cpkCRkdzu6_lTW00SZZHCR9E1hACyxZCcQDyt5v-VSEDe6-eIf33noMdHBo8mRosXEhwC7BGpG5FwDQ",
     "domain": ".note.com",
     "path": "/",
-    "expires": 1795819453.483891,
+    "expires": 1795823055.596765,
     "httpOnly": false,
     "secure": true,
     "sameSite": "Lax"
   },
   {
     "name": "_vid_v1",
-    "value": "541ce6e348f5d33048f73b22271ae83b",
+    "value": "22483cbca7ec6a6d9a9054439334007f",
     "domain": "note.com",
     "path": "/",
     "expires": -1,
@@ -91,20 +91,20 @@
   },
   {
     "name": "_vid_v2",
-    "value": "541ce6e348f5d33048f73b22271ae83b",
+    "value": "22483cbca7ec6a6d9a9054439334007f",
     "domain": ".note.com",
     "path": "/",
-    "expires": 1795819454,
+    "expires": 1795823056,
     "httpOnly": false,
     "secure": false,
     "sameSite": "Lax"
   },
   {
     "name": "_vid_v2_issued_at",
-    "value": "1795817654413",
+    "value": "1795821256651",
     "domain": ".note.com",
     "path": "/",
-    "expires": 1795819454,
+    "expires": 1795823056,
     "httpOnly": false,
     "secure": false,
     "sameSite": "Lax"
